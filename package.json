@@ -19,7 +19,7 @@
   "main": "extensions/index.ts",
   "files": [
     "extensions",
-    "skills",
+    "symdex",
     "src",
     "package.json",
     "README.md",
@@ -35,7 +35,7 @@
       "extensions/index.ts"
     ],
     "skills": [
-      "skills"
+      "symdex"
     ]
   },
   "devDependencies": {
