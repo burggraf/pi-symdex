@@ -1,0 +1,45 @@
+{
+  "name": "pi-symdex",
+  "version": "0.1.0",
+  "description": "SymDex integration for pi - universal code indexer with semantic search and call graph navigation",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/burggraf/pi-symdex.git"
+  },
+  "author": "Mark Burggraf",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "symdex",
+    "code-indexer",
+    "semantic-search",
+    "call-graph",
+    "symbol-search"
+  ],
+  "main": "extensions/index.ts",
+  "files": [
+    "extensions",
+    "skills",
+    "src",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
+  "pi": {
+    "image": "https://raw.githubusercontent.com/burggraf/pi-symdex/main/pi-symdex.png",
+    "extensions": [
+      "extensions/index.ts"
+    ],
+    "skills": [
+      "skills"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
