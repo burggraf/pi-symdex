@@ -23,7 +23,7 @@ function checkSymDexAvailable(): boolean {
   if (symdexAvailable !== null) return symdexAvailable;
   
   try {
-    const result = spawnSync("symdex", ["--version"], {
+    const result = spawnSync("symdex", ["--help"], {
       encoding: "utf-8",
       timeout: 5000,
     });
@@ -36,12 +36,130 @@ function checkSymDexAvailable(): boolean {
 }
 
 /**
+ * Fix missing schema.sql file in symdex installation.
+ * This is a workaround for https://github.com/husnainpk/SymDex/issues
+ * where the schema.sql file is not included in the pip package.
+ */
+function ensureSchemaSqlExists(): boolean {
+  try {
+    // Find the symdex executable and its Python
+    const whichResult = spawnSync("which", ["symdex"], {
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    
+    if (whichResult.status !== 0 || !whichResult.stdout) {
+      return false;
+    }
+    
+    const symdexPath = whichResult.stdout.trim();
+    // symdex is usually a symlink, resolve it
+    const realSymdexPath = fs.realpathSync(symdexPath);
+    // Go up from bin/symdex to the venv root
+    const venvRoot = path.dirname(path.dirname(realSymdexPath));
+    const pythonPath = path.join(venvRoot, "bin", "python");
+    
+    // Find the symdex package location using the correct Python
+    const result = spawnSync(pythonPath, ["-c", "import symdex.core; print(symdex.core.__file__)"], {
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    
+    if (result.status !== 0 || !result.stdout) {
+      return false;
+    }
+    
+    const coreDir = path.dirname(result.stdout.trim());
+    const schemaPath = path.join(coreDir, "schema.sql");
+    
+    // Check if schema.sql already exists
+    if (fs.existsSync(schemaPath)) {
+      return true;
+    }
+    
+    // Schema.sql content from symdex source
+    const schemaContent = `-- SymDex Database Schema
+
+CREATE TABLE IF NOT EXISTS symbols (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    file TEXT NOT NULL,
+    start_byte INTEGER NOT NULL,
+    end_byte INTEGER NOT NULL,
+    signature TEXT,
+    docstring TEXT,
+    embedding BLOB,
+    repo TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_symbols_repo ON symbols(repo);
+CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
+CREATE INDEX IF NOT EXISTS idx_symbols_kind ON symbols(kind);
+CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file);
+CREATE INDEX IF NOT EXISTS idx_symbols_repo_name ON symbols(repo, name);
+
+CREATE TABLE IF NOT EXISTS calls (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    caller_id INTEGER NOT NULL,
+    callee_id INTEGER NOT NULL,
+    repo TEXT NOT NULL,
+    FOREIGN KEY (caller_id) REFERENCES symbols(id) ON DELETE CASCADE,
+    FOREIGN KEY (callee_id) REFERENCES symbols(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_calls_repo ON calls(repo);
+CREATE INDEX IF NOT EXISTS idx_calls_caller ON calls(caller_id);
+CREATE INDEX IF NOT EXISTS idx_calls_callee ON calls(callee_id);
+
+CREATE TABLE IF NOT EXISTS routes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    handler TEXT NOT NULL,
+    file TEXT NOT NULL,
+    line INTEGER,
+    repo TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_routes_repo ON routes(repo);
+CREATE INDEX IF NOT EXISTS idx_routes_method ON routes(method);
+CREATE INDEX IF NOT EXISTS idx_routes_handler ON routes(handler);
+
+CREATE TABLE IF NOT EXISTS repos (
+    name TEXT PRIMARY KEY,
+    root_path TEXT NOT NULL,
+    db_path TEXT NOT NULL,
+    last_indexed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`;
+    
+    fs.writeFileSync(schemaPath, schemaContent);
+    console.log(`[SymDex] Fixed missing schema.sql at ${schemaPath}`);
+    return true;
+  } catch (error) {
+    console.error("[SymDex] Failed to fix schema.sql:", error);
+    return false;
+  }
+}
+
+/**
  * Start the SymDex MCP server
  */
 async function startSymDexServer(ctx: ExtensionContext): Promise<boolean> {
   if (symdexClient?.initialized) return true;
   if (!checkSymDexAvailable()) {
     ctx.ui.notify("SymDex not found. Install with: pip install symdex", "error");
+    return false;
+  }
+
+  // Workaround: Ensure schema.sql exists (missing from pip package)
+  // See: https://github.com/husnainpk/SymDex/issues
+  if (!ensureSchemaSqlExists()) {
+    ctx.ui.notify("Failed to setup SymDex schema. Please check the installation.", "error");
     return false;
   }
 

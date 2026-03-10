@@ -38,6 +38,8 @@ brew install pipx
 pipx install symdex
 ```
 
+> **Note:** There is a known issue with the `symdex` pip package (v0.1.3) where the `schema.sql` file is not included. The `pi-symdex` extension automatically works around this by creating the missing file on first use. See [Known Issues](#known-issues) for details.
+
 ### 2. Install pi-symdex
 
 ```bash
@@ -140,6 +142,21 @@ Load the skill for detailed usage guidelines:
 
 - Python 3.11+ (for SymDex)
 - pi coding agent
+
+## Known Issues
+
+### Missing schema.sql in pip package (v0.1.3)
+
+The `symdex` package on PyPI (version 0.1.3) is missing the `schema.sql` file that is required for creating the database. This causes indexing to fail with:
+
+```
+FileNotFoundError: [Errno 2] No such file or directory: 
+'.../site-packages/symdex/core/schema.sql'
+```
+
+**Workaround:** The `pi-symdex` extension automatically detects and fixes this issue by creating the missing `schema.sql` file when the server starts. No manual action is required.
+
+**Upstream fix:** This issue has been reported to the SymDex project. Once fixed upstream, the workaround in `pi-symdex` will become unnecessary but will remain harmless.
 
 ## License
 
