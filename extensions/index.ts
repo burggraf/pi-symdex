@@ -176,29 +176,25 @@ async function startSymDexServer(ctx: ExtensionContext): Promise<boolean> {
     };
 
     // Handle stdout (JSON-RPC responses)
+    // FastMCP 3.x uses newline-delimited JSON (not LSP-style Content-Length framing)
     let buffer = "";
     process.stdout?.on("data", (data: Buffer) => {
       buffer += data.toString();
       
-      // Process complete JSON-RPC messages
-      while (true) {
-        const contentLengthMatch = buffer.match(/Content-Length: (\d+)\r\n\r\n/);
-        if (!contentLengthMatch) break;
-        
-        const contentLength = parseInt(contentLengthMatch[1], 10);
-        const headerLength = contentLengthMatch[0].length;
-        const messageStart = buffer.indexOf(contentLengthMatch[0]) + headerLength;
-        
-        if (buffer.length < messageStart + contentLength) break;
-        
-        const messageJson = buffer.slice(messageStart, messageStart + contentLength);
-        buffer = buffer.slice(messageStart + contentLength);
+      // Process complete JSON-RPC messages (line-delimited)
+      const lines = buffer.split("\n");
+      // Keep the last line in buffer if it's incomplete (no trailing newline)
+      buffer = lines.pop() || "";
+      
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
         
         try {
-          const message = JSON.parse(messageJson);
+          const message = JSON.parse(trimmed);
           handleJsonRpcMessage(message);
         } catch (e) {
-          console.error("Failed to parse JSON-RPC message:", e);
+          console.error("[SymDex] Failed to parse JSON-RPC message:", trimmed.substring(0, 200));
         }
       }
     });
@@ -262,11 +258,8 @@ function sendJsonRpcRequest(method: string, params: any): Promise<any> {
     symdexClient.pendingRequests.set(id, { resolve, reject });
 
     const message = JSON.stringify({ jsonrpc: "2.0", id, method, params });
-    const contentLength = Buffer.byteLength(message, "utf-8");
-    
-    symdexClient.process.stdin.write(
-      `Content-Length: ${contentLength}\r\n\r\n${message}`
-    );
+    // FastMCP 3.x uses newline-delimited JSON (not LSP-style Content-Length framing)
+    symdexClient.process.stdin.write(message + "\n");
 
     // Timeout after 30 seconds
     setTimeout(() => {
@@ -285,11 +278,8 @@ function sendJsonRpcNotification(method: string, params: any) {
   if (!symdexClient?.process?.stdin) return;
 
   const message = JSON.stringify({ jsonrpc: "2.0", method, params });
-  const contentLength = Buffer.byteLength(message, "utf-8");
-  
-  symdexClient.process.stdin.write(
-    `Content-Length: ${contentLength}\r\n\r\n${message}`
-  );
+  // FastMCP 3.x uses newline-delimited JSON (not LSP-style Content-Length framing)
+  symdexClient.process.stdin.write(message + "\n");
 }
 
 /**

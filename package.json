@@ -1,6 +1,6 @@
 {
   "name": "pi-symdex",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "SymDex integration for pi - universal code indexer with semantic search and call graph navigation",
   "repository": {
     "type": "git",
