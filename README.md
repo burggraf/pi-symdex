@@ -20,8 +20,22 @@ SymDex is a universal code-indexer MCP server that pre-indexes your codebase and
 
 ### 1. Install SymDex
 
+**Standard install:**
 ```bash
 pip install symdex
+```
+
+**macOS (Homebrew Python) - if you get `externally-managed-environment` error:**
+
+Use the provided install script which handles the setup with `pipx`:
+```bash
+./install_symdex.sh
+```
+
+Or manually with pipx:
+```bash
+brew install pipx
+pipx install symdex
 ```
 
 ### 2. Install pi-symdex
